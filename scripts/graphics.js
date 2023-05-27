@@ -70,6 +70,7 @@ MySample.graphics = (function(pixelsX, pixelsY, showPixels) {
         drawPixel(x + 1, y + 1, ptColor);
         drawPixel(x - 1, y + 1, ptColor);
     }
+
     function drawLine(x1, y1, x2, y2, color) {
         let distanceX = Math.abs(x2-x1);
         let distanceY = Math.abs(y2-y1);
@@ -219,7 +220,7 @@ MySample.graphics = (function(pixelsX, pixelsY, showPixels) {
         let yu = 0;
         if(showControl){
             drawLine(p0_x, p0_y, p0_x + prime0_x, prime0_y, 'cyan');
-            drawLine(p1_x, p1_y, p1_x + prime1_x, p1_y + prime1_y, 'cyan')
+            drawLine(p1_x, p1_y, p1_x + prime1_x, p1_y + prime1_y, 'cyan');
         }
         let compute = function(){
             let memo = [];
@@ -239,7 +240,7 @@ MySample.graphics = (function(pixelsX, pixelsY, showPixels) {
             xu = p0_x * result[0] + p1_x * result[1] + prime0_x * result[2] + prime1_x * result[3];
             yu = p0_y * result[0] + p1_y * result[1] + prime0_y * result[2] + prime1_y * result[3];
             if(showPoints){
-                drawPoint(xu, yu, "orange")
+                drawPoint(xu, yu, "orange");
             }
             if(showLine && u > 0){
                 drawLine(tempX, tempY, xu, yu, lineColor);
@@ -352,7 +353,7 @@ MySample.graphics = (function(pixelsX, pixelsY, showPixels) {
             let f = [1, 1];
             return function inner(n) {
                 if (n > f.length - 1) {
-                    f[n] = inner(n - 1) * n
+                    f[n] = inner(n - 1) * n;
                 }
                 return f[n];
             }
@@ -450,6 +451,21 @@ MySample.graphics = (function(pixelsX, pixelsY, showPixels) {
     //
     //------------------------------------------------------------------
     function drawPrimitive(primitive, connect, color) {
+        let {verts} = primitive;
+        let vertsLength = verts.length;
+        let i = 0;
+        while(i < vertsLength - 1){
+            let {x: x1, y: y1} = verts[i];
+            let {x: x2, y: y2} = verts[i + 1];
+            drawLine(x1, y1, x2, y2, color);
+            i++;
+        }
+        if(connect){
+            let {x: x1, y: y1} = verts[vertsLength - 1];
+            let {x: x2, y: y2} = verts[0];
+            drawLine(x1, y1, x2, y2, color);
+        }   
+        drawPoint(primitive.center.x, primitive.center.y, 'cyan');
     }
     //------------------------------------------------------------------
     //
@@ -459,6 +475,9 @@ MySample.graphics = (function(pixelsX, pixelsY, showPixels) {
     //
     //------------------------------------------------------------------
     function translatePoint(point, distance) {
+        point.x += distance.x;
+        point.y += distance.y;
+        return point;
     }
     //------------------------------------------------------------------
     //
@@ -471,6 +490,13 @@ MySample.graphics = (function(pixelsX, pixelsY, showPixels) {
     //
     //------------------------------------------------------------------
     function translatePrimitive(primitive, distance) {
+        let i = 0;
+        while(i < primitive.verts.length){
+            let verts = primitive.verts[i];
+            verts.x = verts.x + distance.x;
+            verts.y = verts.y + distance.y;
+            i++;
+        }
     }
     //------------------------------------------------------------------
     //
@@ -483,6 +509,18 @@ MySample.graphics = (function(pixelsX, pixelsY, showPixels) {
     //
     //------------------------------------------------------------------
     function scalePrimitive(primitive, scale) {
+        let center = primitive.center;
+        let i = 0;
+        while (i < primitive.verts.length) {
+            let verts = primitive.verts[i];
+            let translateOrigin = translatePoint({x: verts.x, y: verts.y}, {x: -center.x, y: -center.y});
+            verts.x = translateOrigin.x * scale;
+            verts.y = translateOrigin.y * scale;
+            let translate = translatePoint({x: verts.x, y: verts.y}, {x: center.x, y: center.y});
+            verts.x = translate.x;
+            verts.y = translate.y;
+            i++;
+        }
     }
     //------------------------------------------------------------------
     //
@@ -495,6 +533,18 @@ MySample.graphics = (function(pixelsX, pixelsY, showPixels) {
     //
     //------------------------------------------------------------------
     function rotatePrimitive(primitive, angle) {
+        let center = primitive.center;
+        let i = 0;
+        while (i < primitive.verts.length) {
+            let verts = primitive.verts[i];
+            let dx = verts.x - center.x;
+            let dy = verts.y - center.y;
+            let primeX = (dx * Math.cos(angle)) - (dy * Math.sin(angle));
+            let primeY = (dx * Math.sin(angle)) + (dy * Math.cos(angle));
+            verts.x = primeX + center.x;
+            verts.y = primeY + center.y;
+            i++;
+        }
     }
     //------------------------------------------------------------------
     //
@@ -505,7 +555,20 @@ MySample.graphics = (function(pixelsX, pixelsY, showPixels) {
     //
     //------------------------------------------------------------------
     function translateCurve(type, controls, distance) {
+        if(type === "Bezier" || type === "BezierMatrix" || type === "Cardinal"){
+            controls[0][0] = controls[0][0] + distance.x;
+            controls[0][1] = controls[0][1] + distance.y;
+            controls[1][0] = controls[1][0] + distance.x;
+            controls[1][1] = controls[1][1] + distance.y;
+            controls[2][0] = controls[2][0] + distance.x;
+            controls[2][1] = controls[2][1] + distance.y;
+            controls[3][0] = controls[3][0] + distance.x;
+            controls[3][1] = controls[3][1] + distance.y;
+        }else{
+            console.log("Invalid Curve.");
+        }
     }
+
     //------------------------------------------------------------------
     //
     // Scales a curve relative to its center.
@@ -515,6 +578,21 @@ MySample.graphics = (function(pixelsX, pixelsY, showPixels) {
     //
     //------------------------------------------------------------------
     function scaleCurve(type, controls, scale) {
+        if(type === "Bezier" || type === "BezierMatrix" || type === "Cardinal"){
+            let centerX = (controls[0][0] + controls[1][0] + controls[2][0] + controls[3][0]) / 4;
+            let centerY = (controls[0][1] + controls[1][1] + controls[2][1] + controls[3][1]) / 4;
+            for(let i= 0; i < controls.length; i++){
+                let translateOrigin = translatePoint({x: controls[i][0], y: controls[i][1]}, {x: -centerX, y: -centerY});
+                controls[i][0] = translateOrigin.x * scale;
+                controls[i][1] = translateOrigin.y * scale;
+                let translate = translatePoint({x: controls[i][0], y: controls[i][1]}, {x: centerX, y: centerY});
+                controls[i][0] = translate.x;
+                controls[i][1] = translate.y;
+            }
+        }else{
+            console.log("Invalid Curve.");
+        }
+        console.log(controls);
     }
     //------------------------------------------------------------------
     //
@@ -525,6 +603,13 @@ MySample.graphics = (function(pixelsX, pixelsY, showPixels) {
     //
     //------------------------------------------------------------------
     function rotateCurve(type, controls, angle) {
+        let i = 0;
+        while(i < controls.length){
+            controls[i][0] = (controls[0][0] * Math.cos(angle)) - (controls[0][1] * Math.sin(angle));
+            controls[i][1] = (controls[1][0] * Math.sin(angle)) + (controls[1][1] * Math.cos(angle));
+            i++
+        }
+
     }
 
     //------------------------------------------------------------------
@@ -562,6 +647,7 @@ MySample.graphics = (function(pixelsX, pixelsY, showPixels) {
         drawCurve: drawCurve,
         drawPrimitive: drawPrimitive,
         translatePrimitive: translatePrimitive,
+        translatePoint: translatePoint,
         scalePrimitive: scalePrimitive,
         rotatePrimitive: rotatePrimitive,
         translateCurve: translateCurve,
